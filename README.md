@@ -18,7 +18,7 @@
 # 설치 방법
 <ol>
   <li>우측 메뉴 중에서 "Release"를 클릭합니다.</li>
-  <li>릴리스 버전의 "Assets" 중에서 설치용 파일인 "k-losslesscut-setup.exe"를 다운로드합니다.</li>
+  <li>릴리스의 "Assets" 중에서 설치용 파일인 "k-losslesscut-setup.exe"를 다운로드합니다.</li>
   <li>다운로드 받은 설치용 파일을 실행합니다. 설치 과정 중 프로그램이 설치될 곳을 사용자가 지정할 수 있습니다.</li>
   <li>"K-LosslessCut" 폴더의 "K-LosslessCut.exe"를 실행하면 됩니다.</li>
 </ol>
