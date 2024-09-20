@@ -17,7 +17,7 @@
 
 # 설치 방법
 <ol>
-  <li>우측 메뉴 중에서 "<strong>Releases</strong>"를 클릭합니다.</li>
+  <li>우측 메뉴 중에서 "<strong><a href="https://github.com/doriok-lab/k-losslesscut/releases">Releases</a></strong>"를 클릭합니다.</li>
   <li>릴리스의 "<strong>Assets</strong>" 중에서 설치 파일인 "k-losslesscut-setup.exe"를 다운로드합니다.</li>
   <li>다운받은 설치 파일을 실행합니다.</li>
 </ol>
