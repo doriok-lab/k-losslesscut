@@ -7,11 +7,11 @@
 <p><strong>버전</strong>: 
 <br>2024.09.09
 <p><strong>사용된 소프트웨어</strong>: 
-<br><a href="https://www.ffmpeg.org/">FFmpeg</a> 2024-06-21-git-d45e20c37b
-<br><a href="https://www.videolan.org/vlc/">VLC media player</a> 3.0.20
-<br><a href="https://wxpython.org/">wxPython</a> 4.2.0
-<br><a href="https://pyinstaller.org/">PyInstaller</a> 5.9.0  
-<br>기타 다수의 Python용 패키지
+<br>- <a href="https://www.ffmpeg.org/">FFmpeg</a> 2024-06-21-git-d45e20c37b
+<br>- <a href="https://www.videolan.org/vlc/">VLC media player</a> 3.0.20
+<br>- <a href="https://wxpython.org/">wxPython</a> 4.2.0
+<br>- <a href="https://pyinstaller.org/">PyInstaller</a> 5.9.0  
+<br>- 기타 Python용 패키지
 <p><strong>프로그래밍 언어</strong>:
 <br><a href="https://www.python.org/">Python</a> 3.10.10
 
