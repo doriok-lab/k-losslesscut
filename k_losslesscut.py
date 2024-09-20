@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-from subprocess import Popen, run, PIPE
+# SPDX-License-Identifier: MIT
+
+from subprocess import Popen, run
 import winreg
 import ctypes
 import sys
@@ -52,6 +54,7 @@ import vlc
 import k_losslesscut2
 from k_losslesscut2 import xtimedelta, getseconds
 import pickle
+import psutil
 import time
 import re
 import wave
@@ -61,11 +64,13 @@ import matplotlib.pyplot as plt
 matplotlib.rcParams['axes.unicode_minus'] = False
 matplotlib.use('WXAgg')
 
+VERSION = k_losslesscut2.VERSION
 FFPROBE = os.getcwd() + '\\ffprobe.exe'
 
 PREVIEW_DURATION = 3
-CUTMODE = '직접 스트림 복사'
+CUTMODE = k_losslesscut2.CUTMODE
 SAVE_DIR = os.path.expanduser('~') + '\\Videos\\K-LosslessCut'
+DOWN_DIR = os.path.expanduser('~') + '\\Downloads'
 FADE_DURATION = 0.5
 FADE_EFFECT = False
 WAVEFORM = True
@@ -73,8 +78,8 @@ LUFS_TARGET = -14.0
 AUDIO_BITRATE = 3  # 96k
 KEYFRAME_INTERVAL = 1
 KEYFRAME_TIME_RANGE = 60
-OPEN_ERROR = '파일 형식이 지원되지 않거나, 파일 확장명이 올바르지 않거나, 파일이 손상되었을 수 있습니다.'
-FILENAME_LIMIT = 40
+OPEN_ERROR = k_losslesscut2.OPEN_ERROR
+FILENAME_LIMIT = k_losslesscut2.FILENAME_LIMIT
 
 
 def get_rgva(rgb, alpha):
@@ -243,6 +248,7 @@ class VideoCut(wx.Frame):
         self.caption = ''
         self.taskchoice = ''
         self.obj_name = ''
+        self.klosslesscut_latest_version = ''
 
         self.millisec_per_frame = -1
         self.lufs = -1
@@ -281,6 +287,7 @@ class VideoCut(wx.Frame):
         self.skip_set_pts_time = False
         self.popupmenu = ''
         self.fullscreen = False
+        self.update_notify_klosslesscut = False
 
         self.size = []
         self.lufsx = []
@@ -297,6 +304,7 @@ class VideoCut(wx.Frame):
         self.end_list = []
         self.prev_begin_list = []
         self.prev_end_list = []
+        self.pids_explorer_existing = []
 
         self.pts = {}
         self.mediainfo = {}
@@ -321,6 +329,8 @@ class VideoCut(wx.Frame):
         self.task_done = False
         self.worker = None
         self.worker2 = None
+        self.worker3 = None
+        self.worker4 = None
         self.proc = None
         self.btn_event = None
         self.rd = None
@@ -382,6 +392,11 @@ class VideoCut(wx.Frame):
                 else:
                     self.config['keyframe_interval'] = KEYFRAME_INTERVAL
 
+                if 'downdir' in self.config:
+                    self.downdir = self.config["downdir"]
+                else:
+                    self.config["downdir"] = DOWN_DIR
+
                 l = [('resolution', '1280x720'), ('timescale', '30000'), ('pixelformat', 'yuv420p'),
                      ('videocodec', 'H.264/AVC'), ('samplerate', '44100'), ('channels', '2'), ('audiocodec', 'aac')]
                 for x in l:
@@ -390,7 +405,7 @@ class VideoCut(wx.Frame):
         else:
             l = [('volume', 100), ('savedir', self.savedir), ('cutmode', self.cutmode), ('preview_duration', self.preview_duration),
                  ('fade_duration', self.fade_duration), ('fade_effect', self.fade_effect),
-                 ('waveform', self.waveform), ('lufs_target', self.lufs_target),
+                 ('waveform', self.waveform), ('lufs_target', self.lufs_target), ('downdir', self.downdir),
                  ('audio_bitrate', self.audio_bitrate), ('keyframe_interval', self.keyframe_interval),
                  ('resolution', '1280x720'), ('timescale', '30000'), ('pixelformat', 'yuv420p'),
                  ('videocodec', 'H.264/AVC'), ('samplerate', '44100'), ('channels', '2'), ('audiocodec', 'aac')]
@@ -472,7 +487,9 @@ class VideoCut(wx.Frame):
 
         self.menu5 = wx.Menu()
         self.menu5.Append(501, '도움말')
-        self.menu5.Append(504, f'{TITLE} 정보')
+        self.menu5.AppendSeparator()
+        self.menu5.Append(505, '업데이트')
+        self.menu5.Append(504, '정보')
         self.menuBar.Append(self.menu5, '  도움말  ')
 
         self.SetMenuBar(self.menuBar)
@@ -855,6 +872,7 @@ class VideoCut(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onkeyframes_beginning, id=217)
         self.Bind(wx.EVT_MENU, self.onmediainfo, id=290)
         self.Bind(wx.EVT_MENU, self.onhelp, id=501)
+        self.Bind(wx.EVT_MENU, self.onupdate_klosslesscut, id=505)
         self.Bind(wx.EVT_MENU, self.onabout, id=504)
         self.Bind(wx.EVT_MENU, self.onhelp_accel_tbl, id=5012)
 
@@ -948,6 +966,18 @@ class VideoCut(wx.Frame):
             self.worker2 = k_losslesscut2.WorkerThread2(self)
             self.worker2.daemon = True
             self.worker2.start()
+
+        for proc in psutil.process_iter(['pid', 'name']):
+            if proc.info['name'] == 'explorer.exe':
+                self.pids_explorer_existing.append(proc.info['pid'])
+
+        wx.CallLater(1, self.check_version_latest, 'klosslesscut')
+
+    def check_version_latest(self, arg=None):
+        self.task = 'checkversion'
+        self.worker4 = k_losslesscut2.WorkerThread4(self, arg)
+        self.worker4.daemon = True
+        self.worker4.start()
 
     def onmouseenter(self, evt):
         if self.object_alias is None:
@@ -1679,6 +1709,9 @@ class VideoCut(wx.Frame):
         cmd = 'explorer /select,'.split() + [self.path_2]
         Popen(cmd, creationflags=0x08000000)
 
+    def onopen_dir2(self, evt=None):
+        Popen(f'explorer /select, "{self.outfile}"')
+
     def playfile(self):
         if self.player_2.get_state() == vlc.State.Playing:
             self.player_2.pause()
@@ -1729,6 +1762,42 @@ class VideoCut(wx.Frame):
         x = (dw - w)
         y = (dh - h) - 40
         self.SetPosition((x, y))
+
+    def onupdate_klosslesscut(self, evt=None):
+        if self.worker3:
+            message = f'{TITLE} 다운로드 중입니다.\n\n' \
+                      f'현재 버전: {VERSION}\n\n최신 버전: {self.klosslesscut_latest_version}'
+            wx.MessageBox(message, TITLE, style=wx.ICON_WARNING)
+            return
+
+        if VERSION == self.klosslesscut_latest_version:
+            message = f'{TITLE} 최신 버전 사용 중입니다.\n\n최신 버전: {self.klosslesscut_latest_version}'
+            wx.MessageBox(message, TITLE)
+            return
+        else:
+            self.update_notify_klosslesscut = True
+            message = f'{TITLE} 최신 버전이 있습니다.  업데이트할까요?\n\n' \
+                      f'현재 버전: {VERSION}\n\n최신 버전: {self.klosslesscut_latest_version}'
+
+            with wx.MessageDialog(self, message, TITLE,
+                                  style=wx.YES_NO | wx.ICON_INFORMATION) as messageDialog:
+                if messageDialog.ShowModal() == wx.ID_YES:
+                    if self.worker or self.worker2:
+                        message = f'{self.task} 완료 후에 업데이트를 진행해주세요.\n\n '
+                        wx.MessageBox(message, TITLE, style=wx.ICON_WARNING)
+                        return
+
+                    self.task = 'klosslesscut'
+                    message = f'{TITLE} 설치파일 다운로드 준비 중...'
+                    self.progrdlg = wx.GenericProgressDialog(f'{TITLE} 설치파일 다운로드', message,
+                                                             maximum=100, parent=self,
+                                                             style=0 | wx.PD_APP_MODAL | wx.PD_AUTO_HIDE |
+                                                                   wx.PD_SMOOTH | wx.PD_CAN_ABORT | wx.PD_ELAPSED_TIME |
+                                                                   wx.PD_ESTIMATED_TIME | wx.PD_REMAINING_TIME)
+
+                    self.worker3 = k_losslesscut2.WorkerThread3(self)
+                    self.worker3.daemon = True
+                    self.worker3.start()
 
     def onabout(self, evt):
         dlg = k_losslesscut2.Help2(self, 9)
@@ -2334,6 +2403,37 @@ class VideoCut(wx.Frame):
         elif evt.data in ['cancelled-capture', 'cancelled-capture2']:
             caption = '캡처'
             self.killtask(f'{caption}를 취소하였습니다.', caption)
+
+        elif evt.data == 'finished-checkversion':
+            self.worker4 = None
+            self.onupdate_klosslesscut()
+            pass
+
+        elif evt.data == 'cancelled-checkversion':
+            self.worker4 = None
+            pass
+
+        elif evt.data == 'finished-klosslesscut':
+            self.progrdlg.Destroy()
+            self.worker3 = None
+            caption = 'K-LosslessCut 설치파일 다운로드'
+            self.stInfo.SetLabel(f'[{caption} 완료]\n{self.outfile}')
+            message = f'업데이트를 진행하려면 일단 프로그램을 닫은 후 설치파일을 실행해야 합니다. 계속할까요?\n\n' \
+                      f'설치파일: {self.outfile}'
+
+            with wx.MessageDialog(self, message, f'{TITLE} 업데이트',
+                                  style=wx.YES_NO | wx.ICON_QUESTION) as messageDialog:
+                if messageDialog.ShowModal() == wx.ID_YES:
+                    self.Close()
+                    self.onopen_dir2()
+
+        elif evt.data == 'cancelled-klosslesscut':
+            self.progrdlg.Destroy()
+            self.worker3 = None
+            caption = 'K-LosslessCut 설치파일 다운로드'
+            self.stInfo.SetLabel(f'[{caption} 취소]')
+            wx.MessageBox(f'{caption}를 취소하였습니다.\n\n ', caption)
+            os.remove(self.outfile)
 
     def togglebtncutoff(self):
         if self.btnCutoff.IsEnabled():
@@ -3780,6 +3880,15 @@ class VideoCut(wx.Frame):
 
         if self.proc:
              Popen(f'TASKKILL /F /PID {self.proc.pid} /T'.split(), creationflags=0x08000000)
+
+        procs = [proc for proc in psutil.process_iter(['name', 'pid'])
+                 if proc.info['name'] == 'explorer.exe']
+        for proc in procs:
+            if  proc.info['pid'] not in self.pids_explorer_existing:
+                try:
+                    proc.terminate()
+                except Exception as e:
+                    print(e)
 
         if plt.get_fignums():
             plt.close()

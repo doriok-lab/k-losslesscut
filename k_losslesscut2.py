@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
+
 import datetime
 import pickle
 import math
@@ -18,8 +20,7 @@ import json
 import re
 import wx.lib.wxpTag
 import time
-
-from wx.py.shell import Shell
+import requests
 
 FFMPEG = os.getcwd() + r'\ffmpeg.exe'
 FFPROBE = os.getcwd() + r'\ffprobe.exe'
@@ -77,6 +78,141 @@ class ResultEvent(wx.PyEvent):
         wx.PyEvent.__init__(self)
         self.SetEventType(-1)
         self.data = data
+
+
+class WorkerThread4(Thread):
+    def __init__(self, parent, arg):
+        Thread.__init__(self)
+        self.parent = parent
+        self.arg = arg
+        self.checked = False
+
+    def run(self):
+        parent = self.parent
+        if self.arg == 'klosslesscut':
+            url = 'https://github.com/doriok-lab/k-losslesscut/blob/main/version.py'
+            text = requests.get(url).text
+            result = re.search(r"__version__ = '(.*?)'", text)
+            if result:
+                self.checked = True
+                parent.klosslesscut_latest_version = result.group(1).strip()
+                if not parent.update_notify_klosslesscut:
+                    if parent.klosslesscut_latest_version != VERSION:
+                        self.abort()
+
+    def abort(self):
+        if self.parent.task == 'checkversion':
+            if self.checked:
+                wx.PostEvent(self.parent, ResultEvent(f'finished-{self.parent.task}'))
+            else:
+                wx.PostEvent(self.parent, ResultEvent(f'cancelled-{self.parent.task}'))
+
+        self.raise_exception()
+
+    def raise_exception(self):
+        thread_id = self.get_id()
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id,
+                                                         ctypes.py_object(SystemExit))
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+            print('예외 발생 실패')
+
+    def get_id(self):
+        if hasattr(self, '_thread_id'):
+            return self._thread_id
+
+        for t in threading.enumerate():
+            if t is self:
+                return t.native_id
+
+
+class WorkerThread3(Thread):
+    def __init__(self, parent):
+        Thread.__init__(self, None)
+        self.parent = parent
+        self.done_size_percent = 0
+        self.done_size = 0
+        self.total_size = 0
+        self.size_per_sec = 0
+
+    def run(self):
+        parent = self.parent
+        # parent.cancelled = False
+        parent.task_done = False
+        if parent.task == 'klosslesscut':
+            url = ('https://github.com/doriok-lab/k-losslesscut/releases/download/k-losslesscut_' +
+                   parent.klosslesscut_latest_version + '/k-losslesscut-setup.exe')
+            parent.outfile = parent.config["downdir"] + '\\k-losslesscut-setup.exe'
+            response = requests.get(url, stream=True)
+            self.total_size = int(response.headers.get('content-length', 0))
+            self.done_size = 0
+            done_size_percent_last = -1
+            with open(parent.outfile, 'wb') as file:
+                try:
+                    start_time = time.time()
+                    for data in response.iter_content(chunk_size=1024):
+                        size = file.write(data)
+                        self.done_size += size
+                        self.done_size_percent = math.floor(100 * self.done_size / self.total_size)
+                        if self.done_size_percent != done_size_percent_last:
+                            done_size_percent_last = self.done_size_percent
+                            end_time = time.time()
+                            elapsed_time = end_time - start_time
+                            if elapsed_time == 0:
+                                continue
+
+                            start_time = time.time()
+                            if round((size / elapsed_time) / 1024, 2) >= 1024:
+                                self.size_per_sec = f'{((size / elapsed_time) / 1024) / 1024:8.2f}GiB/s'
+                            elif round(size / elapsed_time, 2) >= 1024:
+                                self.size_per_sec = f'{(size / elapsed_time) / 1024:8.2f}MiB/s'
+                            else:
+                                self.size_per_sec = f'{size / elapsed_time:8.2f}KiB/s'
+
+                            self.checkproc_download_klosslesscut()
+
+                except Exception as e:
+                    print(e)
+
+    def abort(self):
+        parent = self.parent
+        if parent.task_done:
+            wx.PostEvent(parent, ResultEvent(f'finished-{parent.task}'))
+        else:
+            wx.PostEvent(parent, ResultEvent(f'cancelled-{parent.task}'))
+
+        self.raise_exception()
+
+    def get_id(self):
+        if hasattr(self, '_thread_id'):
+            return self._thread_id
+
+        for t in threading.enumerate():
+            if t is self:
+                return t.native_id
+
+    def raise_exception(self):
+        thread_id = self.get_id()
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id,
+                                                         ctypes.py_object(SystemExit))
+
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+            print('예외 발생 실패')
+
+    def checkproc_download_klosslesscut(self):
+        parent = self.parent
+        if parent.progrdlg.WasCancelled():
+            self.abort()
+            return
+
+        msg = (f'[다운로드] {self.done_size_percent:4}%      '
+             f'크기: {self.total_size/1048576:7.2f}MiB      속도: {self.size_per_sec}')
+        parent.progrdlg.Update(self.done_size_percent, msg)
+        if self.done_size_percent >= 100:
+            parent.task_done = True
+            self.abort()
+            return
 
 
 class WorkerThread2(Thread):
@@ -1178,12 +1314,14 @@ class Help2(wx.Dialog):
             text += f"""<html><body>
 <h3>{TITLE}</h3><strong>버전</strong> {VERSION}<br><br>
 <p><strong><a href="https://www.ffmpeg.org/">FFmpeg</a></strong> {FFMPEG2}
+<p><strong><a href="https://www.videolan.org/vlc/">VLC media player</a></strong> {VLC}
 <p><strong><a href="https://wxpython.org/">wxPython</a></strong> {WXPYTHON}
 <p><strong><a href="https://www.python.org/">Python</a></strong> {PYTHON}
 <p><strong><a href="https://pyinstaller.org/">PyInstaller</a></strong> {PYINSTALLER}<br><br>
 <p>HS Kang
 <hr>
 <a href="https://ko.wikipedia.org/wiki/FFmpeg">FFmpeg</a>&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://ko.wikipedia.org/wiki/VLC_media_player">VLC media player</a>&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://ko.wikipedia.org/wiki/WxPython">wxPython</a>&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://ko.wikipedia.org/wiki/파이썬">Python</a>&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://wikidocs.net/226795">PyInstaller</a>"""
