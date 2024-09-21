@@ -2501,22 +2501,6 @@ class VideoCut(wx.Frame):
             if os.path.isfile(self.path_2):
                 os.remove(self.path_2)
 
-    def clearfiles2(self):
-        self.player_2.stop()
-        self.player.stop()
-
-        path = f'{self.savedir}\\preview.mp4'
-        if os.path.isfile(path):
-            os.remove(path)
-
-        p = re.compile('\.wav$')
-        filenames = os.listdir(self.savedir)
-        for filename in filenames:
-            m = p.search(filename)
-            if m:
-                path = f'{self.savedir}\\{filename}'
-                os.remove(path)
-
     def clearntcutfiles(self):
         basename = os.path.basename(self.infile)
         name, ext = os.path.splitext(basename)
@@ -3868,19 +3852,29 @@ class VideoCut(wx.Frame):
         self.Close()
 
     def onwindowclose(self, evt):
+        with open('config.pickle', 'wb') as f:
+            pickle.dump(self.config, f)
+
+        if plt.get_fignums():
+            plt.close()
+
         if self.helf_frame:
             self.helf_frame.Close()
 
         if self.player:
-            if self.player.get_length() != -1:
-                self.config['volume'] = self.player.audio_get_volume()
+            self.player.stop()
 
-        with open('config.pickle', 'wb') as f:
-            pickle.dump(self.config, f)
+        if self.player_2:
+            self.player_2.stop()
 
+        # 프로세스 종료
         if self.proc:
-             Popen(f'TASKKILL /F /PID {self.proc.pid} /T'.split(), creationflags=0x08000000)
+            try:
+                Popen(f'TASKKILL /F /PID {self.proc.pid} /T'.split(), creationflags=0x08000000)
+            except Exception as e:
+                print(e)
 
+        # 프로그램 실행 중 생성된 explorer.exe 끝내기
         procs = [proc for proc in psutil.process_iter(['name', 'pid'])
                  if proc.info['name'] == 'explorer.exe']
         for proc in procs:
@@ -3890,13 +3884,26 @@ class VideoCut(wx.Frame):
                 except Exception as e:
                     print(e)
 
-        if plt.get_fignums():
-            plt.close()
+        # 임시파일 삭제
+        path = f'{self.savedir}\\preview.mp4'
+        if os.path.isfile(path):
+            try:
+                os.remove(path)
+            except Exception as e:
+                print(e)
 
-        self.clearfiles2()
+        p = re.compile('\.wav$')
+        filenames = os.listdir(self.savedir)
+        for filename in filenames:
+            m = p.search(filename)
+            if m:
+                path = f'{self.savedir}\\{filename}'
+                try:
+                    os.remove(path)
+                except Exception as e:
+                    print(e)
 
         self.Destroy()
-        evt.Skip()
 
 
 if __name__ == '__main__':
