@@ -1266,9 +1266,6 @@ class Help(wx.Dialog):
 
         webbrowser.open_new_tab(url)
 
-    def __del__(self):
-        pass
-
 
 class Help2(wx.Dialog):
     def __init__(self, parent, arg):
@@ -1296,7 +1293,7 @@ class Help2(wx.Dialog):
 <h3>LUFS</h3>
 <h4>1. LUFS의 뜻</h4>
 <p>LUFS는 방송 텔레비전 시스템과 기타 동영상 및 음악 스트리밍 서비스에서 오디오 정규화에 사용되는 표준 음량 측정 단위입니다.
-<p><strong>인간의 귀가 소리를 인식하는 방식</strong>과 유사한 방식으로 오디오 프로그램 라우드니스를 측정하는 알고리즘이 적용됩니다.
+<p><strong>인간의 귀가 소리를 인식하는 방식</strong>과 유사한 방식으로 오디오 프로그램 음량을 측정하는 알고리즘이 적용됩니다.
 <br><br>
 <h4>2. 표준 LUFS를 권장하는 이유</h4>
 <p>유튜브의 경우, 업로드된 동영상의 음량이 -14LUFS를 넘을 때에는 정규화를 통해 해당 동영상의 음량을 줄여버립니다. 다음과 같은 목적에서입니다.
@@ -1345,11 +1342,6 @@ class Help2(wx.Dialog):
         url = link.GetLinkInfo().GetHref()
         os.startfile(url)
 
-    def __del__(self):
-        pass
-        #frame.SetFocus()
-
-
 
 class HelpCutMode(wx.Dialog):
     def __init__(self, parent):
@@ -1385,9 +1377,6 @@ class HelpCutMode(wx.Dialog):
     def onevtlinkclicked(link):
         url = link.GetLinkInfo().GetHref()
         webbrowser.open_new_tab(url)
-
-    def __del__(self):
-        pass
 
 
 class HelpFFplay(wx.Dialog):
@@ -1448,7 +1437,7 @@ class HelpSetupLufs(wx.Dialog):
 <h3>LUFS</h3>
 <h4>1. LUFS의 뜻</h4>
 <p>- LUFS는 방송 텔레비전 시스템과 기타 동영상 및 음악 스트리밍 서비스에서 오디오 정규화에 사용되는 표준 음량 측정 단위입니다.
-<p>- <strong>인간의 귀가 소리를 인식하는 방식</strong>과 유사한 방식으로 오디오 프로그램 라우드니스를 측정하는 알고리즘이 적용됩니다.
+<p>- <strong>인간의 귀가 소리를 인식하는 방식</strong>과 유사한 방식으로 오디오 프로그램 음량을 측정하는 알고리즘이 적용됩니다.
 <br><br>
 <h4>2. LUFS는 왜 중요한가</h4>
 <p>- 유튜브의 경우, 업로드된 동영상의 음량이 -14LUFS를 넘을 때에는 정규화를 통해 해당 동영상의 음량을 줄여버립니다. 
@@ -1517,9 +1506,6 @@ class HelpKLosslesscut(wx.Dialog):
     def onevtlinkclicked(link):
         url = link.GetLinkInfo().GetHref()
         webbrowser.open_new_tab(url)
-
-    def __del__(self):
-        pass
 
 
 def get_streams(file):
