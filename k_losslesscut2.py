@@ -649,7 +649,8 @@ class WorkerThread(Thread):
                           f'-c:v copy -filter_complex "[1:a]aloop=loop={times-1}:size={size}[a1];[0:a][a1]amix=inputs=2[aout]" -map 0:v -map "[aout]" -shortest'.split() + \
                           [f'"{parent.outfile}"'] + \
                           '2>&1 | % ToString | Tee-Object out.txt'.split()
-                    print(' '.join(cmd))
+                    # print(' '.join(cmd))
+
                 # 오디오 스트림이 없으면
                 else:
                     cmd = f'powershell & "{FFMPEG}" -y -i'.split() + \
@@ -678,7 +679,6 @@ class WorkerThread(Thread):
                 outfile = ''
                 if parent.task == 'waveform':
                     outfile = f'{parent.savedir}\\{name}.wav'
-                    # print('parent.begin_end', parent.begin_end, 'begin', begin)
                     if parent.begin_end and parent.begin_end == '이전':    # 미리보기
                         begin = parent.length_2 / 1000 - parent.preview_duration
                     else:   # 구간추출
@@ -723,7 +723,6 @@ class WorkerThread(Thread):
                       '2>&1 | % ToString | Tee-Object out.txt'.split()
 
             elif parent.task in ['reencode', 'reencode2']:
-                print(parent.task)
                 path = parent.infile if parent.infile else parent.path
                 info = getmediainfo(path)
                 self.has_video = (info[0] != '')
@@ -779,9 +778,6 @@ class WorkerThread(Thread):
             elif parent.task == 'saveas':
                 self.infile_short = os.path.split(parent.infile)[1][:FILENAME_LIMIT]
 
-            #print('task:', parent.task, 'cmd:', ' '.join(cmd))
-            #print('task:', parent.task, 'cmd:', cmd)
-
             if parent.task_label[parent.task] != '':
                 if parent.task == 'preview':
                     s = f'[현 위치 {parent.begin_end} {parent.preview_duration}초 미리보기 시작]'
@@ -793,6 +789,7 @@ class WorkerThread(Thread):
             else:
                 parent.stInfo.SetLabel('')
 
+            # print('>>> task:', parent.task, 'cmd:', ' '.join(cmd))
             parent.proc = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, creationflags=0x08000000)
 
             if parent.task in ['preview', 'cutoff', 'lufs', 'measurevolume', 'volume',
@@ -857,7 +854,7 @@ class WorkerThread(Thread):
             return
 
         s = str(parent.proc.stdout.readline())
-        # print(s)
+        print(s)
         if 'Error initializing' in s:
             s = s.replace("b'", "").replace("\\r\\n'", "")
             self.abort = True
@@ -906,7 +903,6 @@ class WorkerThread(Thread):
                     return
 
                 if parent.task == 'addaudio3':
-                    print(xtimedelta(float(self.duration) * 1000))
                     parent.duration = xtimedelta(float(self.duration) * 1000)
                 else:
                     parent.duration = s2

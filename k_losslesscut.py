@@ -1710,7 +1710,7 @@ class VideoCut(wx.Frame):
         Popen(cmd, creationflags=0x08000000)
 
     def onopen_dir2(self, evt=None):
-        Popen(f'explorer /select, "{self.outfile}"')
+        Popen(f'explorer /select, "{self.outfile}"'.split())
 
     def playfile(self):
         if self.player_2.get_state() == vlc.State.Playing:
@@ -1742,6 +1742,9 @@ class VideoCut(wx.Frame):
                 plt.close()
 
         self.task = 'waveform'
+        if self.length_2 == -1:
+            self.length_2 = self.get_length_2()
+
         path_2 = os.path.split(self.path_2)[1][:FILENAME_LIMIT]
         if self.begin_end in ['이전', '이후']:  # 미리보기 파형이면
             message = f'{path_2}'
@@ -1755,6 +1758,13 @@ class VideoCut(wx.Frame):
         self.worker = k_losslesscut2.WorkerThread(self)
         self.worker.daemon = True
         self.worker.start()
+
+    def get_length_2(self):
+        length_2 = self.player_2.get_length()
+        if length_2 != -1:
+            return length_2
+        else:
+            wx.CallLater(100, self.get_length_2)
 
     def aligntobottomright(self):
         dw, dh = wx.DisplaySize()
@@ -2238,7 +2248,6 @@ class VideoCut(wx.Frame):
             if self.segments:
                 pass
             else:
-                print('>>> no-segments')
                 basename = os.path.basename(self.path)
                 name, ext = os.path.splitext(basename)
                 begin_ = xtimedelta(self.begin).replace(":", ".")
@@ -2452,7 +2461,7 @@ class VideoCut(wx.Frame):
         self.progrdlg.Update(100)
         self.progrdlg.Destroy()
         if self.proc:
-            Popen(f'TASKKILL /F /PID {self.proc.pid} /T', creationflags=0x08000000)
+            Popen(f'TASKKILL /F /PID {self.proc.pid} /T'.split(), creationflags=0x08000000)
 
         if self.btn_event:
             if self.btn_event.GetLabel() == '추출':
@@ -2472,7 +2481,7 @@ class VideoCut(wx.Frame):
                 self.progrdlg.Destroy()
 
             # creationflags=0x08000000: CREATE_NO_WINDOW
-            Popen(f'TASKKILL /F /PID {self.proc.pid} /T', creationflags=0x08000000)
+            Popen(f'TASKKILL /F /PID {self.proc.pid} /T'.split(), creationflags=0x08000000)
             wx.CallLater(1000, self.clearfiles)
 
         if self.btn_event:
@@ -2494,12 +2503,18 @@ class VideoCut(wx.Frame):
                 basename_ = f'[{self.task}]{name} ({i}){ext}'
                 outfile = rf'{self.savedir}\{basename_}'
                 if os.path.isfile(outfile):
-                    os.remove(outfile)
+                    try:
+                        os.remove(outfile)
+                    except Exception as e:
+                        print(e)
                 else:
                     break
         else:
             if os.path.isfile(self.path_2):
-                os.remove(self.path_2)
+                try:
+                    os.remove(self.path_2)
+                except Exception as e:
+                    print(e)
 
     def clearntcutfiles(self):
         basename = os.path.basename(self.infile)
