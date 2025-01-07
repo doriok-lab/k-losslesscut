@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # SPDX-License-Identifier: MIT
 
+
 from subprocess import Popen, run
 import winreg
 import ctypes
@@ -48,6 +49,8 @@ import wx
 import wx.html2
 import wx.dataview as dv
 import wx.lib.agw.pygauge as pg
+from wx.lib.agw.aui.framemanager import *
+import wx.lib.agw.advancedsplash as AS
 from wx.lib.dialogs import ScrolledMessageDialog
 import math
 import vlc
@@ -95,7 +98,7 @@ class PopMenu(wx.Menu):
 
         if self.popupmenu == 'left':
             self.Append(101, '파일 열기...')
-            self.AppendSeparator()
+            # self.AppendSeparator()
 
         self.Append(103, '다른 이름으로 저장...')
         self.Enable(103, False)
@@ -104,7 +107,7 @@ class PopMenu(wx.Menu):
         self.Enable(201, False)
         self.Append(202, '볼륨 측정')
         self.Enable(202, False)
-        self.AppendSeparator()
+        # self.AppendSeparator()
         bitrate = self.parent.audio_bitrates[self.parent.audio_bitrate]
         bps = f'({bitrate})' if bitrate else ''
         self.menu2_4 = wx.Menu()
@@ -133,17 +136,18 @@ class PopMenu(wx.Menu):
             self.Append(211, '캡처...')
             self.Enable(211, False)
 
-        self.AppendSeparator()
-        self.Append(300, '기본앱으로 재생')
-        self.Enable(300, (popupmenu == 'left' and self.parent.path != '') or
-                    (popupmenu == 'right' and self.parent.path_2 != ''))
-        self.AppendSeparator()
+        # self.AppendSeparator()
         if popupmenu == 'left':
             self.Append(217, '키프레임 타임스탬프')
             self.Enable(217, False)
 
         self.Append(290, '미디어 정보')
         self.Enable(290, False)
+        if popupmenu == 'left':
+            self.AppendSeparator()
+            self.Append(300, '기본앱으로 재생')
+            self.Enable(300, (popupmenu == 'left' and self.parent.path != '') or
+                    (popupmenu == 'right' and self.parent.path_2 != ''))
 
         if popupmenu == 'left':
             if self.parent.path != '':
@@ -213,6 +217,12 @@ class PopMenu2(wx.Menu):
 
 class VideoCut(wx.Frame):
     def __init__(self, parent):
+        imagepath = ".\\data\\k-losslesscut-splash.png"
+        bitmap = wx.Bitmap(imagepath, wx.BITMAP_TYPE_PNG)
+        splash = AS.AdvancedSplash(parent, bitmap=bitmap,
+                                   agwStyle=AS.AS_CENTER_ON_SCREEN | AS.AS_SHADOW_BITMAP,
+                                   shadowcolour=wx.BLACK)
+
         self.parent = parent
         self.frame_width = 1218
         self.frame_height = 649
@@ -321,7 +331,7 @@ class VideoCut(wx.Frame):
                            'saveas': '다른 이름으로 저장', 'waveform': '파형보기', 'waveform2': '파형보기',
                            'concat': '하나로 잇기', 'concat2': '하나로 잇기', 'seek-keyframe': '',
                            'ncut': '분할(개수 지정)', 'tcut': '분할(길이 지정)', 'mediainfo': '미디어 정보',
-                           'capture': '캡처', 'rotate': '회전 / 뒤집기', 'ratio': '종횡비 변경'}
+                           'capture': '캡처', 'rotate': '회전 / 뒤집기', 'ratio': '종횡비 변경', 'transcode': '트랜스코딩(=>webm)'}
         self.object_alias = {}
         self.streams = set()
         self.progrdlg = None
@@ -419,22 +429,23 @@ class VideoCut(wx.Frame):
         self.menuBar = wx.MenuBar()
         self.menu1 = wx.Menu()
         self.menu1.Append(101, '파일 열기...')
-        self.menu1.AppendSeparator()
+        # self.menu1.AppendSeparator()
         self.menu1.Append(103, '다른 이름으로 저장...')
         self.menu1.Enable(103, False)
-        self.menu1.AppendSeparator()
+        # self.menu1.AppendSeparator()
         self.menu1.Append(108, '설정...')
-        self.menu1.AppendSeparator()
+        # self.menu1.AppendSeparator()
         self.menu1.Append(104, '저장 폴더 비우기')
         self.menu1.AppendSeparator()
         self.menu1.Append(109, '닫기')
         self.menuBar.Append(self.menu1, '  파일  ')
+
         self.menu2 = wx.Menu()
         self.menu2.Append(201, 'LUFS 측정 / 볼륨 조정...')
         self.menu2.Enable(201, False)
         self.menu2.Append(202, '볼륨 측정...')
         self.menu2.Enable(202, False)
-        self.menu2.AppendSeparator()
+        # self.menu2.AppendSeparator()
 
         bitrate = self.audio_bitrates[self.audio_bitrate]
         bps = f'({bitrate})' if bitrate else ''
@@ -470,7 +481,7 @@ class VideoCut(wx.Frame):
         self.menu2.Append(211, '캡처...')
         self.menu2.Enable(211, False)
 
-        self.menu2.AppendSeparator()
+        # self.menu2.AppendSeparator()
         self.menu2.Append(217, '키프레임 타임스탬프...')
         self.menu2.Enable(217, False)
 
@@ -482,16 +493,15 @@ class VideoCut(wx.Frame):
         self.menu2.Append(210, '음악 동영상 만들기...')
 
         self.menu2.Append(215, '리먹싱(=>mp4)...')
-
+        self.menu2.Append(218, '트랜스코딩(=>webm)...')
         self.menuBar.Append(self.menu2, '  도구  ')
 
         self.menu5 = wx.Menu()
         self.menu5.Append(501, '도움말')
-        self.menu5.AppendSeparator()
+        # self.menu5.AppendSeparator()
         self.menu5.Append(505, '업데이트')
         self.menu5.Append(504, '정보')
         self.menuBar.Append(self.menu5, '  도움말  ')
-
         self.SetMenuBar(self.menuBar)
 
         imagefile = '.\\data\\intro.jpg'
@@ -870,6 +880,7 @@ class VideoCut(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onremux, id=215)
         self.Bind(wx.EVT_MENU, self.onratio, id=216)
         self.Bind(wx.EVT_MENU, self.onkeyframes_beginning, id=217)
+        self.Bind(wx.EVT_MENU, self.ontranscode, id=218)
         self.Bind(wx.EVT_MENU, self.onmediainfo, id=290)
         self.Bind(wx.EVT_MENU, self.onhelp, id=501)
         self.Bind(wx.EVT_MENU, self.onupdate_klosslesscut, id=505)
@@ -972,6 +983,7 @@ class VideoCut(wx.Frame):
                 self.pids_explorer_existing.append(proc.info['pid'])
 
         wx.CallLater(1, self.check_version_latest, 'klosslesscut')
+        splash.Close()
 
     def check_version_latest(self, arg=None):
         self.task = 'checkversion'
@@ -2078,7 +2090,21 @@ class VideoCut(wx.Frame):
                           wx.ICON_INFORMATION)
 
         elif evt.data == 'cancelled-remux':
-            caption = 'Remux'
+            caption = '리먹싱'
+            self.killtask(f'{caption}을 취소하였습니다.', caption)
+
+        elif evt.data == 'finished-transcode':
+            self.stopprogress()
+            caption = '트랜스코딩(=>webm)'
+            self.stInfo.SetLabel(f'[{caption} 완료]\n작업 대상: {self.infile}')
+            self.addoutput()
+            self.path_2 = self.outfile[:]
+            self.loadfile_2()
+            wx.MessageBox(f'{caption} 완료\n\n{self.infile}\n\n=>\n\n{self.outfile}', caption,
+                          wx.ICON_INFORMATION)
+
+        elif evt.data == 'cancelled-transcode':
+            caption = '트랜스코딩'
             self.killtask(f'{caption}을 취소하였습니다.', caption)
 
         elif evt.data == 'finished-waveform':
@@ -3227,8 +3253,8 @@ class VideoCut(wx.Frame):
         self.btnGotoEnd.Disable()
 
     def onremux(self, evt):
-        wildcard = '동영상파일 (*.mov;*.mkv;*.webm;*.avi;*.wmv;*.3gp;*.3g2)|' \
-                   '*.mov;*.mkv;*.webm;*.avi;*.wmv;*.3gp;*.3g2|모든 파일 (*.*)|*.*'
+        wildcard = '동영상파일 (*.mov;*.mkv;*.webm;*.avi;*.flv)|' \
+                   '*.mov;*.mkv;*.webm;*.avi;*.flv'
         dlg = wx.FileDialog(self, message='파일을 선택하세요.', wildcard=wildcard,
                             style=wx.FD_OPEN | wx.FD_CHANGE_DIR)
         val = dlg.ShowModal()
@@ -3639,8 +3665,41 @@ class VideoCut(wx.Frame):
             basename_ = f'[capture]{name} {width}x{height}.jpg'
             self.outfile = rf'{self.savedir}\{basename_}'
             self.player.video_take_snapshot(0, self.outfile, int(width), int(height))
-            # time.sleep(0.1)
+            # time.sleep(0.01)
             wx.PostEvent(self, k_losslesscut2.ResultEvent(f'finished-{self.task}'))
+
+    def ontranscode(self, evt):
+        wildcard = '동영상 파일 (*.mp4;*.mov;*.mkv;*.avi;*.flv)|*.mp4;*.mov;*.mkv;*.avi;*.flv'
+        dlg = wx.FileDialog(self, message='파일을 선택하세요.', wildcard=wildcard,
+                            style=wx.FD_OPEN | wx.FD_CHANGE_DIR)
+        val = dlg.ShowModal()
+        path = dlg.GetPath()
+        dlg.Destroy()
+        if val == wx.ID_OK:
+            info = k_losslesscut2.getmediainfo(path)
+            if not info:
+                wx.MessageBox(f'파일을 재생할 수 없습니다.\n\n{path}\n \n파일 형식이 지원되지 않거나, '
+                              '파일 확장명이 올바르지 않거나, 파일이 손상되었을 수 있습니다.',
+                              TITLE, wx.ICON_EXCLAMATION)
+                return
+
+            if info[0] == '' or info[3] in ['png', 'mjpeg']:
+                if info[0] == '':
+                    wx.MessageBox(f'비디오 스트림이 없는 파일입니다.\n\n{path}',
+                                  TITLE, wx.ICON_EXCLAMATION)
+                else:
+                    wx.MessageBox(f'이미지 파일입니다.\n\n{path}',
+                                  TITLE, wx.ICON_EXCLAMATION)
+
+                return
+
+            self.infile = path
+            self.info = info
+            self.task = 'transcode'
+            k_losslesscut2.doit(self)
+
+        else:
+            return
 
     def setcontrols(self):
         self.slider.Disable()
@@ -3867,21 +3926,44 @@ class VideoCut(wx.Frame):
         self.Close()
 
     def onwindowclose(self, evt):
-        with open('config.pickle', 'wb') as f:
-            pickle.dump(self.config, f)
+        progrdlg = wx.GenericProgressDialog('프로그램 종료', '', maximum=8, parent=self,
+                                                 style=0 | wx.PD_AUTO_HIDE | wx.PD_SMOOTH)
 
+        progrdlg.Update(1, '변수 저장 중...')
+        try:
+            with open('config.pickle', 'wb') as f:
+                pickle.dump(self.config, f)
+        except Exception as e:
+            print(e)
+
+        progrdlg.Update(2, '파형 그래프 닫는 중...')
         if plt.get_fignums():
-            plt.close()
+            try:
+                plt.close()
+            except Exception as e:
+                print(e)
 
+        progrdlg.Update(3, '도움말 닫는 중...')
         if self.helf_frame:
-            self.helf_frame.Close()
+            try:
+                self.helf_frame.Close()
+            except Exception as e:
+                print(e)
 
+        progrdlg.Update(4, '미디어 플레이어 닫는 중...')
         if self.player:
-            self.player.stop()
+            try:
+                self.player.stop()
+            except Exception as e:
+                print(e)
 
         if self.player_2:
-            self.player_2.stop()
+            try:
+                self.player_2.stop()
+            except Exception as e:
+                print(e)
 
+        progrdlg.Update(5, '프로세스 강제종료 중...')
         # 프로세스 종료
         if self.proc:
             try:
@@ -3889,16 +3971,7 @@ class VideoCut(wx.Frame):
             except Exception as e:
                 print(e)
 
-        # 프로그램 실행 중 생성된 explorer.exe 끝내기
-        procs = [proc for proc in psutil.process_iter(['name', 'pid'])
-                 if proc.info['name'] == 'explorer.exe']
-        for proc in procs:
-            if  proc.info['pid'] not in self.pids_explorer_existing:
-                try:
-                    proc.terminate()
-                except Exception as e:
-                    print(e)
-
+        progrdlg.Update(6, '임시파일 삭제 중...')
         # 임시파일 삭제
         path = f'{self.savedir}\\preview.mp4'
         if os.path.isfile(path):
@@ -3908,16 +3981,36 @@ class VideoCut(wx.Frame):
                 print(e)
 
         p = re.compile('\.wav$')
-        filenames = os.listdir(self.savedir)
-        for filename in filenames:
-            m = p.search(filename)
-            if m:
-                path = f'{self.savedir}\\{filename}'
-                try:
-                    os.remove(path)
-                except Exception as e:
-                    print(e)
+        try:
+            filenames = os.listdir(self.savedir)
+            for filename in filenames:
+                m = p.search(filename)
+                if m:
+                    path = f'{self.savedir}\\{filename}'
+                    try:
+                        os.remove(path)
+                    except Exception as e:
+                        print(e)
 
+        except Exception as e:
+            print(e)
+
+        progrdlg.Update(7, '프로그램에 의해 열린 파일 탐색기 닫는 중...')
+        # 프로그램 실행 중 생성된 explorer.exe 끝내기
+        try:
+            procs = [proc for proc in psutil.process_iter(['name', 'pid'])
+                     if proc.info['name'] == 'explorer.exe']
+            for proc in procs:
+                if  proc.info['pid'] not in self.pids_explorer_existing:
+                    try:
+                        proc.terminate()
+                    except Exception as e:
+                        print(e)
+
+        except Exception as e:
+            print(e)
+
+        progrdlg.Destroy()
         self.Destroy()
 
 

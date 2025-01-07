@@ -666,6 +666,13 @@ class WorkerThread(Thread):
                       [f'"{parent.outfile}"'] + \
                       '2>&1 | % ToString | Tee-Object out.txt'.split()
 
+            elif parent.task == 'transcode':
+                cmd = f'powershell & "{FFMPEG}" -y -i'.split() + \
+                      [f'"{parent.infile}"'] + \
+                      '-c:v libvpx-vp9 -c:a libopus'.split() + \
+                      [f'"{parent.outfile}"'] + \
+                      '2>&1 | % ToString | Tee-Object out.txt'.split()
+
             elif parent.task in ['waveform', 'waveform2']:
                 self.section = f'{xtimedelta(0) } - {xtimedelta(parent.length_2 * 1000)}'
                 self.path_short = os.path.split(parent.path)[1][:FILENAME_LIMIT] + \
@@ -795,7 +802,7 @@ class WorkerThread(Thread):
             if parent.task in ['preview', 'cutoff', 'lufs', 'measurevolume', 'volume',
                                'extractaudio', 'removeaudio', 'addaudio3', 'orientation',
                                'concat2', 'music3', 'reencode', 'reencode2', 'rotate',
-                               'waveform', 'waveform2', 'remux', 'ratio']:
+                               'waveform', 'waveform2', 'remux', 'ratio', 'transcode']:
                 while parent.proc.poll() is None and not self.abort:
                     self.checkprogress()
 
@@ -2726,6 +2733,11 @@ def doit(self, caption=None, event=None):
         name, ext = os.path.splitext(basename)
         self.outfile = f'{self.savedir}\\[remux]{name}.mp4'
 
+    elif self.task == 'transcode':
+        name, ext = os.path.splitext(basename)
+        self.outfile = f'{self.savedir}\\[transcode]{name}.webm'
+
+
     #############
     # thread
     #############
@@ -3026,15 +3038,15 @@ class NavBar(wx.Panel):
                      '도구',
                             'LUFS 측정 / 볼륨 조정', '볼륨 측정', '오디오 처리', '분할',
                             '인코딩', '회전 / 뒤집기', '가로형/세로형 변환', '종횡비 변경', '캡처',
-                            '키프레임 타임스탬프', '미디어 정보', '하나로 잇기', '음악 동영상 만들기', '리먹싱(=>mp4)']
+                            '키프레임 타임스탬프', '미디어 정보', '하나로 잇기', '음악 동영상 만들기',
+                            '리먹싱(=>mp4)', '트랜스코딩(=>webm)']
 
-        self.pages = ['index.html',
-                      None,
-                            'open.html', 'saveas.html', 'setup.html', None, None, None, None, None, None,
-                      None,
-                            'lufs.html', 'volume.html', 'audio.html', 'ncut_tcut.html',
-                            'reencode.html', 'rotate.html', 'orientation.html', 'ratio.html', 'capture.html',
-                            'keyframes.html', 'mediainfo.html', 'concat.html', 'musicvideo.html', 'remux.html']
+        self.pages = ['index.html', None, 'open.html', 'saveas.html', 'setup.html',
+                      None, None, None, None, None, None, None, 'lufs.html', 'volume.html',
+                      'audio.html', 'ncut_tcut.html', 'reencode.html', 'rotate.html',
+                      'orientation.html', 'ratio.html', 'capture.html', 'keyframes.html',
+                      'mediainfo.html', 'concat.html', 'musicvideo.html', 'remux.html',
+                      'transcode.html']
         self.tree = NavTree(
             self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TR_HAS_BUTTONS)
         self.parent = parent
@@ -3058,6 +3070,7 @@ class NavBar(wx.Panel):
         self.tree.AppendItem(self.menu2, self.labs[23])
         self.tree.AppendItem(self.menu2, self.labs[24])
         self.tree.AppendItem(self.menu2, self.labs[25])
+        self.tree.AppendItem(self.menu2, self.labs[26])
         self.tree.ExpandAll()
         self.tree.Bind(wx.EVT_TREE_SEL_CHANGED, self.onchanged)
 
