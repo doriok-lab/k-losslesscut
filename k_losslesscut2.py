@@ -44,11 +44,11 @@ OPEN_ERROR = '파일 형식이 지원되지 않거나, 파일 확장명이 올�
 FILENAME_LIMIT = 40
 
 VERSION = '2024.09.09'
-PYTHON = '3.10.7'
+PYTHON = '3.10.10'
 WXPYTHON = '4.2.1'
 FFMPEG2 = 'ffmpeg-2022-05-23-git-6076dbcb55'
 VLC = '3.0.20'
-PYINSTALLER = '5.6.2'
+PYINSTALLER = '5.9.0'
 
 
 def xtimedelta(milliseconds):
