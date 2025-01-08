@@ -50,7 +50,6 @@ import wx.html2
 import wx.dataview as dv
 import wx.lib.agw.pygauge as pg
 from wx.lib.agw.aui.framemanager import *
-import wx.lib.agw.advancedsplash as AS
 from wx.lib.dialogs import ScrolledMessageDialog
 import math
 import vlc
@@ -217,12 +216,6 @@ class PopMenu2(wx.Menu):
 
 class VideoCut(wx.Frame):
     def __init__(self, parent):
-        imagepath = ".\\data\\k-losslesscut-splash.png"
-        bitmap = wx.Bitmap(imagepath, wx.BITMAP_TYPE_PNG)
-        splash = AS.AdvancedSplash(parent, bitmap=bitmap,
-                                   agwStyle=AS.AS_CENTER_ON_SCREEN | AS.AS_SHADOW_BITMAP,
-                                   shadowcolour=wx.BLACK)
-
         self.parent = parent
         self.frame_width = 1218
         self.frame_height = 649
@@ -239,6 +232,7 @@ class VideoCut(wx.Frame):
         self.keyframes_pts_range = KEYFRAME_TIME_RANGE
         self.savedir = SAVE_DIR
 
+        self.downdir = ''
         self.path = ''
         self.path_2 = ''
         self.infile = ''
@@ -983,7 +977,6 @@ class VideoCut(wx.Frame):
                 self.pids_explorer_existing.append(proc.info['pid'])
 
         wx.CallLater(1, self.check_version_latest, 'klosslesscut')
-        splash.Close()
 
     def check_version_latest(self, arg=None):
         self.task = 'checkversion'
@@ -3963,15 +3956,7 @@ class VideoCut(wx.Frame):
             except Exception as e:
                 print(e)
 
-        progrdlg.Update(5, '프로세스 강제종료 중...')
-        # 프로세스 종료
-        if self.proc:
-            try:
-                Popen(f'TASKKILL /F /PID {self.proc.pid} /T'.split(), creationflags=0x08000000)
-            except Exception as e:
-                print(e)
-
-        progrdlg.Update(6, '임시파일 삭제 중...')
+        progrdlg.Update(5, '임시파일 삭제 중...')
         # 임시파일 삭제
         path = f'{self.savedir}\\preview.mp4'
         if os.path.isfile(path):
@@ -3995,7 +3980,7 @@ class VideoCut(wx.Frame):
         except Exception as e:
             print(e)
 
-        progrdlg.Update(7, '프로그램에 의해 열린 파일 탐색기 닫는 중...')
+        progrdlg.Update(6, '프로그램에 의해 열린 파일 탐색기 닫는 중...')
         # 프로그램 실행 중 생성된 explorer.exe 끝내기
         try:
             procs = [proc for proc in psutil.process_iter(['name', 'pid'])
@@ -4009,6 +3994,14 @@ class VideoCut(wx.Frame):
 
         except Exception as e:
             print(e)
+
+        progrdlg.Update(7, '프로세스 종료 중...')
+        # 프로세스 종료
+        if self.proc:
+            try:
+                Popen(f'TASKKILL /F /PID {self.proc.pid} /T'.split(), creationflags=0x08000000)
+            except Exception as e:
+                print(e)
 
         progrdlg.Destroy()
         self.Destroy()
