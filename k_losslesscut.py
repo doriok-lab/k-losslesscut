@@ -61,10 +61,11 @@ import time
 import re
 import wave
 import matplotlib
-import matplotlib.pyplot as plt
-
-matplotlib.rcParams['axes.unicode_minus'] = False
 matplotlib.use('WXAgg')
+matplotlib.rcParams['axes.unicode_minus'] = False
+import matplotlib.pyplot as plt
+plt.rcParams['toolbar'] = 'None'
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 
 VERSION = k_losslesscut2.VERSION
 FFPROBE = os.getcwd() + '\\ffprobe.exe'
@@ -126,6 +127,8 @@ class PopMenu(wx.Menu):
         self.Enable(213, False)
         self.Append(214, '회전 / 뒤집기...')
         self.Enable(214, False)
+        self.Append(219, '역방향으로 돌리기...')
+        self.Enable(219, False)
 
         if popupmenu == 'left':
             self.Append(212, '가로형/세로형 변환...')
@@ -153,7 +156,8 @@ class PopMenu(wx.Menu):
                 self.Enable(103, True)
                 self.Enable(201, True)
                 self.Enable(202, True)
-                self.Enable(214, True)  # 메뉴: '인코딩...'
+                self.Enable(214, True)  # 메뉴: '회전/뒤집기...'
+                self.Enable(219, True)  # 메뉴: '역방향으로 돌리기...'
                 self.menu_audio.Enable(True)  # 메뉴: '오디오 처리'
                 # self.Enable(206, True)   # 메뉴: '해상도 변경...'
                 self.menu_ntcut.Enable(True)  # 메뉴: '분할'
@@ -170,7 +174,8 @@ class PopMenu(wx.Menu):
                 self.Enable(103, True)
                 self.Enable(201, not_image)
                 self.Enable(202, not_image)
-                self.Enable(214, not_image)  # 메뉴: '인코딩...'
+                self.Enable(214, not_image)  # 메뉴: '회전/뒤집기...'
+                self.Enable(219, not_image)  # 메뉴: '역방향으로 돌리기...'
                 self.menu_audio.Enable(not_image)  # 메뉴: '오디오 처리'
                 # self.Enable(206, not_image)   # 메뉴: '해상도 변경...'
                 self.menu_ntcut.Enable(not_image)  # 메뉴: '분할'
@@ -217,7 +222,7 @@ class PopMenu2(wx.Menu):
 class VideoCut(wx.Frame):
     def __init__(self, parent):
         self.parent = parent
-        self.frame_width = 1218
+        self.frame_width = 1241
         self.frame_height = 649
         self.cutmode = CUTMODE
         self.preview_duration = PREVIEW_DURATION
@@ -325,7 +330,8 @@ class VideoCut(wx.Frame):
                            'saveas': '다른 이름으로 저장', 'waveform': '파형보기', 'waveform2': '파형보기',
                            'concat': '하나로 잇기', 'concat2': '하나로 잇기', 'seek-keyframe': '',
                            'ncut': '분할(개수 지정)', 'tcut': '분할(길이 지정)', 'mediainfo': '미디어 정보',
-                           'capture': '캡처', 'rotate': '회전 / 뒤집기', 'ratio': '종횡비 변경', 'transcode': '트랜스코딩(=>webm)'}
+                           'capture': '캡처', 'rotate': '회전 / 뒤집기', 'ratio': '종횡비 변경',
+                           'transcode': '트랜스코딩(=>webm)', 'reverse': '역방향으로 돌리기'}
         self.object_alias = {}
         self.streams = set()
         self.progrdlg = None
@@ -431,7 +437,7 @@ class VideoCut(wx.Frame):
         # self.menu1.AppendSeparator()
         self.menu1.Append(104, '저장 폴더 비우기')
         self.menu1.AppendSeparator()
-        self.menu1.Append(109, '닫기')
+        self.menu1.Append(109, '닫기--')
         self.menuBar.Append(self.menu1, '  파일  ')
 
         self.menu2 = wx.Menu()
@@ -465,6 +471,9 @@ class VideoCut(wx.Frame):
 
         self.menu2.Append(214, '회전 / 뒤집기...')
         self.menu2.Enable(214, False)
+
+        self.menu2.Append(219, '역방향으로 돌리기...')
+        self.menu2.Enable(219, False)
 
         self.menu2.Append(212, '가로형/세로형 변환...')
         self.menu2.Enable(212, False)
@@ -610,9 +619,19 @@ class VideoCut(wx.Frame):
         self.btnNext1.SetToolTip('1초 전진')
         self.btnNext10 = wx.Button(self, -1, '10s▷', size=(37, -1))
         self.btnNext10.SetToolTip('10초 전진')
+        self.btnRateHalf = wx.Button(self, -1, 'x½', size=(27, -1))
+        self.btnRateHalf.SetToolTip('현재 재생속도를 ½ 감속')
+        self.btnRateHalf.Disable()
+        self.btnRateDefault = wx.Button(self, -1, '1', size=(22, -1))
+        self.btnRateDefault.SetToolTip('재생속도를 원래대로')
+        self.btnRateDefault.Disable()
+        self.btnRateDouble = wx.Button(self, -1, 'x2', size=(24, -1))
+        self.btnRateDouble.SetToolTip('현재 재생속도를 2배 가속')
+        self.btnRateDouble.Disable()
+
 
         self.stBegin = wx.StaticText(self, -1, '', size=(60, -1))
-        self.stPosLabel = wx.StaticText(self, -1, '', size=(40, -1), style=wx.ALIGN_RIGHT)
+        self.stPosLabel = wx.StaticText(self, -1, '', size=(99, -1), style=wx.ALIGN_RIGHT)
         self.stPos = wx.StaticText(self, -1, '', size=(65, -1), style=wx.ALIGN_RIGHT)
         self.stPos.SetForegroundColour('blue')
         self.stPos.SetToolTip('현 위치')
@@ -620,7 +639,7 @@ class VideoCut(wx.Frame):
         self.stDuration = wx.StaticText(self, -1, '', size=(65, -1))
         self.stDuration.SetToolTip('재생 시간')
         self.stDurationLabel = wx.StaticText(self, -1, '', size=(40, -1))
-        self.stEnd = wx.StaticText(self, -1, '', size=(60, -1), style=wx.ALIGN_RIGHT)
+        self.stEnd = wx.StaticText(self, -1, '', size=(100, -1), style=wx.ALIGN_RIGHT)
 
         self.cbWaveform = wx.CheckBox(self, -1, '파형 표시')
         self.cbWaveform.SetValue(self.waveform)
@@ -662,6 +681,8 @@ class VideoCut(wx.Frame):
         self.statusBar = self.CreateStatusBar(3, style=wx.BORDER_NONE)
         self.statusBar.SetStatusWidths([-1, 80, 80])
         self.SetIcon(wx.Icon("data/k-losslesscut.ico"))
+        # self.figure = plt.figure(figsize=(2, 0.25))
+        # self.canvas = FigureCanvas(self, -1, self.figure)
 
         inner_4 = wx.BoxSizer(wx.HORIZONTAL)
         inner_4.Add(st, 1, wx.EXPAND)
@@ -691,7 +712,6 @@ class VideoCut(wx.Frame):
         inner3.Add(self.stDurationLabel, 0, wx.LEFT, 5)
         inner3.Add((1, -1), 1, wx.RIGHT, 5)
         inner3.Add(self.stEnd, 1, wx.LEFT, 5)
-        inner3.Add((10, -1), 0)
 
         self.inner_2_2_1 = inner_2_2_1 = wx.BoxSizer(wx.VERTICAL)
         inner_2_2_1_1 = wx.BoxSizer(wx.HORIZONTAL)
@@ -704,6 +724,7 @@ class VideoCut(wx.Frame):
         inner_2_2_1.Add(self.slider, 1, wx.EXPAND)
         inner_2_2_1.Add(inner_2_2_1_1, 0, wx.EXPAND)
         inner_2_2_1.Add(inner3, 0, wx.EXPAND | wx.TOP, 10)
+        # inner_2_2_1.Add(self.canvas, 0)  ##############
 
         self.border_left_pn = border_left_pn = wx.BoxSizer(wx.HORIZONTAL)
         border_left_pn.Add((10, -1))
@@ -769,6 +790,9 @@ class VideoCut(wx.Frame):
         inner_3_5.Add(self.btnNext1, 0, wx.RIGHT, 5)
         inner_3_5.Add(self.btnPrev10, 0, wx.RIGHT, 5)
         inner_3_5.Add(self.btnNext10, 0, wx.RIGHT, 5)
+        inner_3_5.Add(self.btnRateHalf, 0, wx.RIGHT, 5)
+        inner_3_5.Add(self.btnRateDefault, 0, wx.RIGHT, 5)
+        inner_3_5.Add(self.btnRateDouble, 0, wx.RIGHT, 5)
 
         inner_3_6 = wx.BoxSizer(wx.HORIZONTAL)
         inner_3_6.Add(self.btnSetBegin, 0, wx.RIGHT, 5)
@@ -837,7 +861,9 @@ class VideoCut(wx.Frame):
                              self.btnCutoffList: 'btnCutoffList', self.btnGotoBegin: 'btnGotoBegin',
                              self.btnGotoEnd: 'btnGotoEnd', self.btnGotoBegin2: 'btnGotoBegin2',
                              self.btnGotoBegin2_2: 'btnGotoBegin2_2', self.btnNext1: 'btnNext1',
-                             self.btnNext10: 'btnNext10', self.btnNextFile: 'btnNextFile',
+                             self.btnNext10: 'btnNext10', self.btnRateDouble: 'btnRateDouble',
+                             self.btnRateHalf: 'btnRateHalf', self.btnRateDefault: 'btnRateDefault',
+                             self.btnNextFile: 'btnNextFile',
                              self.btnNextFrame: 'btnNextFrame', self.btnNextKey: 'btnNextKey',
                              self.btnNextSegment: 'btnNextSegment', self.btnOpenAsSource: 'btnOpenAsSource',
                              self.btnOpenDir: 'btnOpenDir', self.btnDefaultApp: 'btnDefaultApp',
@@ -870,6 +896,7 @@ class VideoCut(wx.Frame):
         self.Bind(wx.EVT_MENU, self.oncapture, id=211)
         self.Bind(wx.EVT_MENU, self.ontransform, id=212)
         self.Bind(wx.EVT_MENU, self.onrotate, id=214)
+        self.Bind(wx.EVT_MENU, self.onreverse, id=219)
         self.Bind(wx.EVT_MENU, self.onreencode, id=213)
         self.Bind(wx.EVT_MENU, self.onremux, id=215)
         self.Bind(wx.EVT_MENU, self.onratio, id=216)
@@ -913,6 +940,9 @@ class VideoCut(wx.Frame):
         self.btnGotoBegin2.Bind(wx.EVT_BUTTON, self.ongotobegin2)
         self.btnPrev10.Bind(wx.EVT_BUTTON, self.onprev10secs)
         self.btnNext10.Bind(wx.EVT_BUTTON, self.onnext10secs)
+        self.btnRateDouble.Bind(wx.EVT_BUTTON, self.onratedouble)
+        self.btnRateDefault.Bind(wx.EVT_BUTTON, self.onratedefault)
+        self.btnRateHalf.Bind(wx.EVT_BUTTON, self.onratehalf)
         self.btnPrev1.Bind(wx.EVT_BUTTON, self.onprev1sec)
         self.btnNext1.Bind(wx.EVT_BUTTON, self.onnext1sec)
         self.btnPrevFrame.Bind(wx.EVT_BUTTON, self.onprevframe)
@@ -1373,6 +1403,9 @@ class VideoCut(wx.Frame):
         self.btnZero.Enable()
         self.btnZeroClone.Enable()
         self.btnStop.Enable()
+        self.btnRateDouble.Enable()
+        self.btnRateDefault.Enable()
+        self.btnRateHalf.Enable()
         boolean = ('keyframes_all' in self.pts) if self.cutmode == '직접 스트림 복사' else True
         self.btnSetBegin.Enable(boolean)
         self.btnSetEnd.Enable(boolean)
@@ -1450,11 +1483,11 @@ class VideoCut(wx.Frame):
         self.btnSetEnd.SetToolTip(f'현 위치{s}에 구간 \'끝\' 표시하기')
 
     def updatetooltip2(self, arg=None):
-        s = '(현위치 기준) ' if arg else ''
-        self.btnNextKey.SetToolTip(f'{s}다음 키프레임')
-        self.btnNextFrame.SetToolTip(f'{s}다음 프레임')
-        self.btnPrevKey.SetToolTip(f'{s}이전 키프레임')
-        self.btnPrevFrame.SetToolTip(f'{s}이전 프레임')
+        s = ' (현위치 기준)' if arg else ''
+        self.btnNextKey.SetToolTip(f'다음 키프레임{s}')
+        self.btnNextFrame.SetToolTip(f'다음 프레임{s}')
+        self.btnPrevKey.SetToolTip(f'이전 키프레임{s}')
+        self.btnPrevFrame.SetToolTip(f'이전 프레임{s}')
         self.btnGotoBegin2.Enable(self.pos != 0)
 
     def scrollchanged(self, evt):
@@ -1539,7 +1572,7 @@ class VideoCut(wx.Frame):
         self.length = self.player.get_length()
         self.slider.SetMax(self.length)
         self.slider.SetRange(0, self.length)
-        self.stPosLabel.SetLabel('현위치')
+        self.stPosLabel.SetLabel('[정상 속도] 현위치')
         self.stPos.SetLabel(xtimedelta(0))
         self.st3.SetLabel('/')
         self.stDuration.SetLabel(xtimedelta(self.length))
@@ -2011,6 +2044,20 @@ class VideoCut(wx.Frame):
             caption = f'회전 / 뒤집기 => {choices[int(self.subtask)]}'
             self.killtask(f'{caption}을 취소하였습니다.', caption)
 
+        elif evt.data == 'finished-reverse':
+            self.stopprogress()
+            caption = '역방향으로 돌리기'
+            self.stInfo.SetLabel(f'[{caption} 완료]\n작업 대상: {self.infile}')
+            self.addoutput()
+            self.path_2 = self.outfile[:]
+            self.loadfile_2()
+            wx.MessageBox(f'{caption} 완료\n\n{self.infile}\n\n=>\n\n{self.outfile}',
+                          caption, wx.ICON_INFORMATION)
+
+        elif evt.data == 'cancelled-reverse':
+            caption = '역방향으로 돌리기'
+            self.killtask(f'{caption}을 취소하였습니다.')
+
         elif evt.data == 'finished-extractaudio':
             self.stopprogress()
             caption = '오디오 추출'
@@ -2059,6 +2106,8 @@ class VideoCut(wx.Frame):
                 # 오디오 스트림이 있으면
                 if info_2[4]:
                     wx.CallLater(500, self.showwaveform)
+                else:
+                    self.setcontrols3()
             else:
                 self.setcontrols3()
 
@@ -2116,7 +2165,7 @@ class VideoCut(wx.Frame):
                     return
 
                 t = np.linspace(0, len(raw) / samplerate, num=len(raw))
-                plt.figure('파형')
+                self.figure = plt.figure('파형')
                 plt.rc('font', family='Malgun Gothic')
                 plt.title(f'{self.stPos.GetLabel()} {self.begin_end} {self.preview_duration}초')
                 x, y = self.GetPosition()
@@ -2739,6 +2788,7 @@ class VideoCut(wx.Frame):
 
     def onstop(self, evt):
         self.player_2.stop()
+        self.player.set_rate(1)
         self.player.stop()
         self.pn.Hide()
         self.bitmap.Show()
@@ -2805,6 +2855,43 @@ class VideoCut(wx.Frame):
     def onnext10secs(self, evt):
         pos = self.length if self.pos + 10000 > self.length else self.pos + 10000
         self.moveposition(pos)
+
+    def onratedefault(self, evt):
+        self.player.set_rate(1.0)
+        current_rate = self.player.get_rate()
+        self.stPosLabel.SetLabel('[정상 속도] 현위치')
+
+    def onratedouble(self, evt):
+        if self.player.get_rate() == 8.0:
+            return
+
+        self.player.set_rate(self.player.get_rate() * 2)
+        current_rate = self.player.get_rate()
+        self.stPosLabel.SetLabel(f'[{self.rate(current_rate)}배속] 현위치')
+        self.btnRateDouble.Enable(self.player.get_rate() < 8.0)
+        self.btnRateHalf.Enable(self.player.get_rate() > 0.125)
+
+    def onratehalf(self, evt):
+        if self.player.get_rate() == 0.125:
+            return
+
+        self.player.set_rate(self.player.get_rate() / 2)
+        current_rate = self.player.get_rate()
+        self.stPosLabel.SetLabel(f'[{self.rate(current_rate)}배속] 현위치')
+        self.btnRateDouble.Enable(self.player.get_rate() < 8.0)
+        self.btnRateHalf.Enable(self.player.get_rate() > 0.125)
+
+    def rate(self, current_rate):
+        if current_rate >= 1:
+            current_rate = int(current_rate)
+        elif current_rate == 0.5:
+            current_rate = '½'
+        elif current_rate == 0.25:
+            current_rate = '¼'
+        elif current_rate == 0.125:
+            current_rate = '⅛'
+
+        return current_rate
 
     def moveposition(self, pos):
         if 'all' in self.pts:
@@ -3562,6 +3649,17 @@ class VideoCut(wx.Frame):
             self.subtask = dlg.GetSelection()
             k_losslesscut2.doit(self, caption=f'{self.task_label[self.task]}')
 
+    def onreverse(self, evt=None):
+        if self.just_after_popupmenu:
+            self.just_after_popupmenu = False
+
+        if evt:
+            self.task = 'reverse'
+            k_losslesscut2.doit(self, event=evt)
+            return
+
+        k_losslesscut2.doit(self, caption='역방향으로 돌리기')
+
     def ontransform(self, evt):
         if self.just_after_popupmenu:
             self.just_after_popupmenu = False
@@ -3705,6 +3803,9 @@ class VideoCut(wx.Frame):
         self.btnZero.Disable()
         self.btnZeroClone.Disable()
         self.btnStop.Disable()
+        self.btnRateDouble.Disable()
+        self.btnRateDefault.Disable()
+        self.btnRateHalf.Disable()
         self.btnPlaySection.Disable()
         self.btnNextKey.Disable()
         self.btnNextFrame.Disable()
@@ -3883,6 +3984,7 @@ class VideoCut(wx.Frame):
         self.menu2.Enable(201, True)
         self.menu2.Enable(202, True)
         self.menu2.Enable(214, True)  # 메뉴: '인코딩...'
+        self.menu2.Enable(219, True)  # 메뉴: '역방향으로 돌리기...'
         self.menu_audio.Enable(True)  # 메뉴: '오디오 처리'
         # self.menu2.Enable(206, True)   # 메뉴: '해상도 변경...'
         self.menu_ntcut.Enable(True)  # 메뉴: '분할'
@@ -3908,6 +4010,7 @@ class VideoCut(wx.Frame):
         self.menu_ntcut.Enable()
         self.menu2.Enable(213, True)
         self.menu2.Enable(214, True)
+        self.menu2.Enable(219, True)
         self.menu2.Enable(290, True)
         if self.task in ['music3', 'concat2']:
             self.menu1.Enable(103, True)
